@@ -36,11 +36,13 @@ export function createApp(db) {
     res.json(rows);
   });
 
-  // Read one note.
+  // Read one of the caller's own notes. The owner condition lives in the query
+  // itself: someone else's note is indistinguishable from a missing one (404),
+  // so the endpoint does not even confirm that the id exists.
   app.get("/api/notes/:id", (req, res) => {
     const note = db
-      .prepare("SELECT id, user_id, title, body, created_at FROM notes WHERE id = ?")
-      .get(Number(req.params.id));
+      .prepare("SELECT id, title, body, created_at FROM notes WHERE id = ? AND user_id = ?")
+      .get(Number(req.params.id), req.userId);
     if (!note) return res.status(404).json({ error: "not found" });
     res.json(note);
   });
