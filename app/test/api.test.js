@@ -58,6 +58,18 @@ describe("GET /api/notes/:id", () => {
   it("404s for a note that does not exist", async () => {
     await asOlya(request(app).get("/api/notes/999")).expect(404);
   });
+
+  // The read-side twin of "will not delete someone else's note". Note 3 is
+  // Тарас's; before the fix this returned 200 with his note, body included.
+  it("will not read someone else's note", async () => {
+    const res = await asOlya(request(app).get("/api/notes/3")).expect(404);
+    expect(res.body).toEqual({ error: "not found" });
+  });
+
+  it("does not expose the owner id of the caller's own note", async () => {
+    const res = await asOlya(request(app).get("/api/notes/1")).expect(200);
+    expect(res.body).not.toHaveProperty("user_id");
+  });
 });
 
 describe("DELETE /api/notes/:id", () => {
