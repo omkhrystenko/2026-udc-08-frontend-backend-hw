@@ -3,12 +3,12 @@
 - list:
   - listitem:
     - strong: Список покупок
-    - text: хліб, кава 2026-09-22 16:58:03
+    - text: хліб, кава 2026-09-22 17:16:39
     - button "Архівувати"
     - button "Видалити"
   - listitem:
     - strong: Ідеї для відпустки
-    - text: Карпати восени 2026-09-22 16:58:03
+    - text: Карпати восени 2026-09-22 17:16:39
     - button "Архівувати"
     - button "Видалити"
 
@@ -22,7 +22,7 @@ FAIL  a11y:focus-after-archive  focus: BODY
 - list:
   - listitem:
     - strong: Список покупок
-    - text: хліб, кава 2026-09-22 16:58:03
+    - text: хліб, кава 2026-09-22 17:16:39
     - button "Повернути з архіву"
     - button "Видалити"
 
@@ -42,6 +42,12 @@ PASS  kbd:archive-reachable-by-tab  select "Я увійшов як
         
           Оля
           Тарас"
-FAIL  axe:dark-scheme  aria-required-children(critical, 1), color-contrast(serious, 6), landmark-one-main(moderate, 1), region(moderate, 4)
+FAIL  a11y:form-fields-have-visible-labels  [false,false]
+FAIL  race:stale-list-does-not-win  {"archiveButtons":0}
+FAIL  net:action-failure-reported  {"status":"","focus":"BODY","stillListed":1,"enabled":true}
+FAIL  net:no-success-over-reload-error  ""
+FAIL  axe:dark-scheme-active  aria-required-children(critical, 1), color-contrast(serious, 2), landmark-one-main(moderate, 1), region(moderate, 3)
+PASS  dark:note-buttons-present  note buttons in the dark archive view: 4
+FAIL  axe:dark-scheme-archive  aria-required-children(critical, 1), color-contrast(serious, 6), landmark-one-main(moderate, 1), region(moderate, 4)
 
-6/16 checks passed
+7/22 checks passed

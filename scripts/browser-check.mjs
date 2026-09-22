@@ -154,13 +154,96 @@ for (let i = 0; i < 12; i++) {
 record("kbd:view-switch-reachable-by-tab", tabStops.some((s) => /"(Активні|Архів)"/.test(s)), "");
 record("kbd:archive-reachable-by-tab", tabStops.some((s) => /архівувати/i.test(s)), tabStops.join(" → "));
 
-// 8. Dark scheme. The stylesheet declares `color-scheme: light dark`, so the
+// 8. Failure paths, forced with request interception.
+const net = await (await browser.newContext()).newPage();
+await net.goto(BASE);
+await net.getByRole("list").first().waitFor();
+await net.waitForTimeout(300);
+
+// 8a. Visible, associated labels on the form (not only placeholder/aria-label).
+const labelled = await net.evaluate(() =>
+  ["title", "body"].map((id) => {
+    const label = document.querySelector(`label[for="${id}"]`);
+    return !!label && label.offsetParent !== null && label.textContent.trim().length > 0;
+  }),
+);
+record("a11y:form-fields-have-visible-labels", labelled.every(Boolean), JSON.stringify(labelled));
+
+// 8b. Race: the active list answers slowly, the user switches to the archive
+//     meanwhile. The slow response must not overwrite the newer view.
+await net.route(/\/api\/notes\?archived=false$/, async (route) => {
+  await new Promise((r) => setTimeout(r, 900));
+  await route.continue();
+});
+await (await viewControl(net, "Архів")).click();
+await (await viewControl(net, "Активні")).click(); // triggers the slow request
+await (await viewControl(net, "Архів")).click(); // newer, fast request
+await net.waitForTimeout(1500);
+await net.unroute(/\/api\/notes\?archived=false$/);
+const raceState = await net.evaluate(() => ({
+  heading: document.querySelector("#list-heading")?.textContent,
+  archiveButtons: [...document.querySelectorAll("#notes button")].filter((b) =>
+    /^Архівувати/.test(b.textContent),
+  ).length,
+}));
+record(
+  "race:stale-list-does-not-win",
+  raceState.heading === "Архів" && raceState.archiveButtons === 0,
+  JSON.stringify(raceState),
+);
+
+// 8c. Network failure on the action: say so, give the button back, keep focus.
+await (await viewControl(net, "Активні")).click();
+await net.waitForTimeout(400);
+await net.route(/\/api\/notes\/\d+$/, (route) =>
+  route.request().method() === "PATCH" ? route.abort("failed") : route.continue(),
+);
+const firstArchive = net.getByRole("button", { name: /^Архівувати/ }).first();
+const failedName = (await firstArchive.getAttribute("aria-label")) ?? (await firstArchive.textContent()).trim();
+await firstArchive.click();
+await net.waitForTimeout(500);
+const afterAbort = {
+  status: await liveRegionText(net),
+  focus: await describeFocus(net),
+  stillListed: await net.getByRole("button", { name: failedName }).count(),
+  enabled: await net.getByRole("button", { name: failedName }).first().isEnabled(),
+};
+record(
+  "net:action-failure-reported",
+  /не вдалося/i.test(afterAbort.status) && afterAbort.stillListed === 1 && afterAbort.enabled && afterAbort.focus.includes(failedName),
+  JSON.stringify(afterAbort),
+);
+await net.unroute(/\/api\/notes\/\d+$/);
+
+// 8d. The action succeeds but the reload fails: never announce success over
+//     the error, and leave the button usable.
+await net.route(/\/api\/notes\?archived=/, (route) =>
+  route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"boom"}' }),
+);
+await net.getByRole("button", { name: /^Архівувати/ }).first().click();
+await net.waitForTimeout(600);
+const afterReloadFail = await liveRegionText(net);
+record(
+  "net:no-success-over-reload-error",
+  /не вдалося завантажити/i.test(afterReloadFail) && !/архівовано/.test(afterReloadFail),
+  JSON.stringify(afterReloadFail),
+);
+await net.unroute(/\/api\/notes\?archived=/);
+
+// 9. Dark scheme. The stylesheet declares `color-scheme: light dark`, so the
 //    contrast requirement holds in both; axe above only saw the light one.
+//    Both views: by now the earlier steps may have archived every note, and an
+//    empty view would leave the note buttons out of the contrast check.
 const dark = await (await browser.newContext({ colorScheme: "dark" })).newPage();
 await dark.goto(BASE);
-await dark.getByRole("list").first().waitFor();
+await dark.getByRole("list").first().waitFor({ state: "attached" });
 await dark.waitForTimeout(300);
-await axe(dark, "dark-scheme");
+await axe(dark, "dark-scheme-active");
+await (await viewControl(dark, "Архів")).click();
+await dark.waitForTimeout(400);
+const darkNoteButtons = await dark.locator("#notes button").count();
+record("dark:note-buttons-present", darkNoteButtons > 0, `note buttons in the dark archive view: ${darkNoteButtons}`);
+await axe(dark, "dark-scheme-archive");
 
 await browser.close();
 

@@ -3,12 +3,12 @@
 - list "Активні нотатки":
   - listitem:
     - strong: Список покупок
-    - text: хліб, кава 2026-09-22 16:58:03
+    - text: хліб, кава 2026-09-22 17:16:39
     - 'button "Архівувати: Список покупок"': Архівувати
     - 'button "Видалити: Список покупок"': Видалити
   - listitem:
     - strong: Ідеї для відпустки
-    - text: Карпати восени 2026-09-22 16:58:03
+    - text: Карпати восени 2026-09-22 17:16:39
     - 'button "Архівувати: Ідеї для відпустки"': Архівувати
     - 'button "Видалити: Ідеї для відпустки"': Видалити
 
@@ -22,7 +22,7 @@ PASS  a11y:focus-after-archive  focus: button "Архівувати: Ідеї д
 - list "Архів":
   - listitem:
     - strong: Список покупок
-    - text: хліб, кава 2026-09-22 16:58:03
+    - text: хліб, кава 2026-09-22 17:16:39
     - 'button "Повернути з архіву: Список покупок"': Повернути з архіву
     - 'button "Видалити: Список покупок"': Видалити
 
@@ -42,6 +42,12 @@ PASS  kbd:archive-reachable-by-tab  select "Я увійшов як
         
           Оля
           Тарас" → input "Заголовок" → input "Текст" → button "Додати"
-PASS  axe:dark-scheme  no violations
+PASS  a11y:form-fields-have-visible-labels  [true,true]
+PASS  race:stale-list-does-not-win  {"heading":"Архів","archiveButtons":0}
+PASS  net:action-failure-reported  {"status":"Не вдалося зв’язатися з сервером.","focus":"button \"Архівувати: Ідеї для відпустки\"","stillListed":1,"enabled":true}
+PASS  net:no-success-over-reload-error  "Не вдалося завантажити нотатки: boom"
+PASS  axe:dark-scheme-active  no violations
+PASS  dark:note-buttons-present  note buttons in the dark archive view: 4
+PASS  axe:dark-scheme-archive  no violations
 
-16/16 checks passed
+22/22 checks passed

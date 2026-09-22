@@ -119,12 +119,27 @@ async function changeNote(button, index, role, send, doneMessage) {
       button.focus();
       return;
     }
-    await load();
-    announce(doneMessage);
-    restoreFocus(role, index);
   } catch {
     announce("Не вдалося зв’язатися з сервером.");
     button.disabled = false;
+    button.focus();
+    return;
+  }
+
+  // The action itself succeeded. What we say next depends on the reload:
+  const outcome = await load();
+  if (outcome === "ok") {
+    announce(doneMessage);
+    restoreFocus(role, index);
+  } else if (outcome === "superseded") {
+    // The user already switched view or user; a newer load owns the list and
+    // focus. Report the action, but do not pull focus back.
+    announce(doneMessage);
+  } else {
+    // load() has already announced its error; the list on screen is stale, so
+    // give the user their button back rather than claiming success.
+    button.disabled = false;
+    button.focus();
   }
 }
 
@@ -136,34 +151,59 @@ async function errorText(res) {
   }
 }
 
+// Every load() gets a number; only the newest one may touch the DOM. Without
+// this, switching views quickly lets a slow earlier response land last and
+// show active notes under the "Архів" heading, or the other way round.
+let latestLoad = 0;
+
+/** @returns {Promise<"ok" | "failed" | "superseded">} */
 async function load() {
+  const ticket = ++latestLoad;
   const view = currentView();
+  const user = userSelect.value;
+
+  let notes;
+  try {
+    const res = await fetch(`/api/notes?archived=${view === "archived"}`, { headers: headers() });
+    if (ticket !== latestLoad) return "superseded";
+    if (!res.ok) {
+      announce(`Не вдалося завантажити нотатки: ${await errorText(res)}`);
+      return "failed";
+    }
+    notes = await res.json();
+  } catch {
+    if (ticket !== latestLoad) return "superseded";
+    announce("Не вдалося завантажити нотатки: немає зв’язку з сервером.");
+    return "failed";
+  }
+  if (ticket !== latestLoad || view !== currentView() || user !== userSelect.value) {
+    return "superseded";
+  }
+
   heading.textContent = VIEWS[view].heading;
   form.hidden = view === "archived";
-
-  const res = await fetch(`/api/notes?archived=${view === "archived"}`, { headers: headers() });
-  if (!res.ok) {
-    announce(`Не вдалося завантажити нотатки: ${await errorText(res)}`);
-    return;
-  }
-  const notes = await res.json();
-
   list.replaceChildren(...notes.map(noteItem));
   empty.textContent = VIEWS[view].empty;
   empty.hidden = notes.length > 0;
+  return "ok";
 }
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = document.querySelector("#title");
   const body = document.querySelector("#body");
-  const res = await fetch("/api/notes", {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({ title: title.value, body: body.value }),
-  });
-  if (!res.ok) {
-    announce(`Не вдалося додати нотатку: ${await errorText(res)}`);
+  try {
+    const res = await fetch("/api/notes", {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ title: title.value, body: body.value }),
+    });
+    if (!res.ok) {
+      announce(`Не вдалося додати нотатку: ${await errorText(res)}`);
+      return;
+    }
+  } catch {
+    announce("Не вдалося додати нотатку: немає зв’язку з сервером.");
     return;
   }
   title.value = "";

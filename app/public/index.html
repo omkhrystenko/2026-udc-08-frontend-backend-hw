@@ -19,9 +19,17 @@
     </header>
 
     <main>
+      <!-- Visible labels tied by for/id: a placeholder vanishes as soon as the
+           user starts typing, and then nothing on screen says what the field is. -->
       <form id="new-note">
-        <input id="title" placeholder="Заголовок" aria-label="Заголовок" required />
-        <input id="body" placeholder="Текст" aria-label="Текст" />
+        <div class="field">
+          <label for="title">Заголовок</label>
+          <input id="title" required />
+        </div>
+        <div class="field">
+          <label for="body">Текст</label>
+          <input id="body" />
+        </div>
         <button type="submit">Додати</button>
       </form>
 
