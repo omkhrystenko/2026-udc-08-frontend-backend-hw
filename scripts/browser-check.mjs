@@ -241,9 +241,13 @@ const afterCreate = {
   status: await liveRegionText(net),
   title: await net.locator("#title").inputValue(),
 };
+// The live region must hold the fuller message only: load() announces its own
+// generic error in the same frame, and the last announcement has to win.
 record(
   "net:create-reload-failure-explained",
-  /додано/i.test(afterCreate.status) && afterCreate.title === "",
+  /додано/i.test(afterCreate.status) &&
+    !/^Не вдалося завантажити/.test(afterCreate.status) &&
+    afterCreate.title === "",
   JSON.stringify(afterCreate),
 );
 await net.unroute(/\/api\/notes\?archived=/);

@@ -26,10 +26,17 @@ function headers() {
   return { "content-type": "application/json", "x-user-id": userSelect.value };
 }
 
+let pendingAnnouncement = 0;
+
 function announce(message) {
   // Clearing first makes a repeated message ("…архівовано" twice) re-announce.
+  // Two announcements in one frame (a failed reload, then the fuller message
+  // explaining it) would otherwise both write to the live region: drop the
+  // older one so the last call always wins.
+  if (pendingAnnouncement) cancelAnimationFrame(pendingAnnouncement);
   status.textContent = "";
-  requestAnimationFrame(() => {
+  pendingAnnouncement = requestAnimationFrame(() => {
+    pendingAnnouncement = 0;
     status.textContent = message;
   });
 }
