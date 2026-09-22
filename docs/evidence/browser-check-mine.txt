@@ -3,12 +3,12 @@
 - list "Активні нотатки":
   - listitem:
     - strong: Список покупок
-    - text: хліб, кава 2026-09-22 17:16:39
+    - text: хліб, кава 2026-09-22 18:16:34
     - 'button "Архівувати: Список покупок"': Архівувати
     - 'button "Видалити: Список покупок"': Видалити
   - listitem:
     - strong: Ідеї для відпустки
-    - text: Карпати восени 2026-09-22 17:16:39
+    - text: Карпати восени 2026-09-22 18:16:34
     - 'button "Архівувати: Ідеї для відпустки"': Архівувати
     - 'button "Видалити: Ідеї для відпустки"': Видалити
 
@@ -22,7 +22,7 @@ PASS  a11y:focus-after-archive  focus: button "Архівувати: Ідеї д
 - list "Архів":
   - listitem:
     - strong: Список покупок
-    - text: хліб, кава 2026-09-22 17:16:39
+    - text: хліб, кава 2026-09-22 18:16:34
     - 'button "Повернути з архіву: Список покупок"': Повернути з архіву
     - 'button "Видалити: Список покупок"': Видалити
 
@@ -46,8 +46,9 @@ PASS  a11y:form-fields-have-visible-labels  [true,true]
 PASS  race:stale-list-does-not-win  {"heading":"Архів","archiveButtons":0}
 PASS  net:action-failure-reported  {"status":"Не вдалося зв’язатися з сервером.","focus":"button \"Архівувати: Ідеї для відпустки\"","stillListed":1,"enabled":true}
 PASS  net:no-success-over-reload-error  "Не вдалося завантажити нотатки: boom"
+PASS  net:create-reload-failure-explained  {"status":"Нотатку додано, але список не оновився. Оновіть сторінку.","title":""}
 PASS  axe:dark-scheme-active  no violations
 PASS  dark:note-buttons-present  note buttons in the dark archive view: 4
 PASS  axe:dark-scheme-archive  no violations
 
-22/22 checks passed
+23/23 checks passed

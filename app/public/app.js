@@ -206,9 +206,15 @@ form.addEventListener("submit", async (e) => {
     announce("Не вдалося додати нотатку: немає зв’язку з сервером.");
     return;
   }
+  // The note exists on the server now, so the fields are cleared either way:
+  // leaving the text in place would invite a second submit and a duplicate.
+  // If the reload fails, say both things — added, but not on screen yet.
   title.value = "";
   body.value = "";
-  load();
+  title.focus();
+  if ((await load()) === "failed") {
+    announce("Нотатку додано, але список не оновився. Оновіть сторінку.");
+  }
 });
 
 viewSwitch.addEventListener("change", load);

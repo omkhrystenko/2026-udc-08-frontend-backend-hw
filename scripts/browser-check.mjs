@@ -228,6 +228,24 @@ record(
   /не вдалося завантажити/i.test(afterReloadFail) && !/архівовано/.test(afterReloadFail),
   JSON.stringify(afterReloadFail),
 );
+// 8e. Creating a note succeeds but the reload fails: the note is on the
+//     server, so the fields must be cleared (a second submit would duplicate
+//     it) and the message must say the list is the stale part.
+await net.route(/\/api\/notes\?archived=/, (route) =>
+  route.fulfill({ status: 500, contentType: "application/json", body: '{"error":"boom"}' }),
+);
+await net.locator("#title").fill("Нотатка під час збою");
+await net.getByRole("button", { name: "Додати" }).click();
+await net.waitForTimeout(600);
+const afterCreate = {
+  status: await liveRegionText(net),
+  title: await net.locator("#title").inputValue(),
+};
+record(
+  "net:create-reload-failure-explained",
+  /додано/i.test(afterCreate.status) && afterCreate.title === "",
+  JSON.stringify(afterCreate),
+);
 await net.unroute(/\/api\/notes\?archived=/);
 
 // 9. Dark scheme. The stylesheet declares `color-scheme: light dark`, so the
