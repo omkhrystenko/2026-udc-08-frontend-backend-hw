@@ -21,6 +21,19 @@ function currentUser(req, res, next) {
   next();
 }
 
+/** Columns a client may see. `user_id` is deliberately absent. */
+const NOTE_COLUMNS = "id, title, body, archived, created_at";
+
+/** SQLite stores the flag as 0/1; the API speaks booleans. */
+function toNote(row) {
+  return { ...row, archived: row.archived === 1 };
+}
+
+/** A path id is a positive integer written plainly — not "1.0", " 1" or "1e0". */
+function parseId(raw) {
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : null;
+}
+
 export function createApp(db) {
   const app = express();
   app.use(express.json());
@@ -28,12 +41,17 @@ export function createApp(db) {
 
   app.use("/api", currentUser);
 
-  // List the caller's own notes.
+  // List the caller's own notes: active ones by default, the archive with
+  // ?archived=true. Any other value is a client error, not a silent default.
   app.get("/api/notes", (req, res) => {
+    const { archived = "false" } = req.query;
+    if (archived !== "true" && archived !== "false") {
+      return res.status(400).json({ error: "archived must be true or false" });
+    }
     const rows = db
-      .prepare("SELECT id, title, body, created_at FROM notes WHERE user_id = ? ORDER BY id")
-      .all(req.userId);
-    res.json(rows);
+      .prepare(`SELECT ${NOTE_COLUMNS} FROM notes WHERE user_id = ? AND archived = ? ORDER BY id`)
+      .all(req.userId, archived === "true" ? 1 : 0);
+    res.json(rows.map(toNote));
   });
 
   // Read one of the caller's own notes. The owner condition lives in the query
@@ -41,10 +59,40 @@ export function createApp(db) {
   // so the endpoint does not even confirm that the id exists.
   app.get("/api/notes/:id", (req, res) => {
     const note = db
-      .prepare("SELECT id, title, body, created_at FROM notes WHERE id = ? AND user_id = ?")
+      .prepare(`SELECT ${NOTE_COLUMNS} FROM notes WHERE id = ? AND user_id = ?`)
       .get(Number(req.params.id), req.userId);
     if (!note) return res.status(404).json({ error: "not found" });
-    res.json(note);
+    res.json(toNote(note));
+  });
+
+  // Archive or restore one of the caller's own notes. The client states the
+  // state it wants ({ "archived": true }) instead of asking for a toggle, so a
+  // double click or a network retry cannot undo the user's intent.
+  app.patch("/api/notes/:id", (req, res) => {
+    const id = parseId(req.params.id);
+    if (id === null) return res.status(400).json({ error: "invalid note id" });
+
+    const payload = req.body;
+    if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+      return res.status(400).json({ error: "body must be a JSON object" });
+    }
+    const unknown = Object.keys(payload).filter((key) => key !== "archived");
+    if (unknown.length > 0) {
+      return res.status(400).json({ error: `unsupported fields: ${unknown.join(", ")}` });
+    }
+    if (typeof payload.archived !== "boolean") {
+      return res.status(400).json({ error: "archived must be a boolean" });
+    }
+
+    // One statement, owner condition included: nothing is read before the
+    // write, so there is no window between "check" and "update".
+    const note = db
+      .prepare(
+        `UPDATE notes SET archived = ? WHERE id = ? AND user_id = ? RETURNING ${NOTE_COLUMNS}`,
+      )
+      .get(payload.archived ? 1 : 0, id, req.userId);
+    if (!note) return res.status(404).json({ error: "not found" });
+    res.json(toNote(note));
   });
 
   // Create a note for the caller.
@@ -57,9 +105,9 @@ export function createApp(db) {
       .prepare("INSERT INTO notes (user_id, title, body) VALUES (?, ?, ?)")
       .run(req.userId, title, body);
     const created = db
-      .prepare("SELECT id, title, body, created_at FROM notes WHERE id = ?")
-      .get(info.lastInsertRowid);
-    res.status(201).json(created);
+      .prepare(`SELECT ${NOTE_COLUMNS} FROM notes WHERE id = ? AND user_id = ?`)
+      .get(info.lastInsertRowid, req.userId);
+    res.status(201).json(toNote(created));
   });
 
   // Delete one of the caller's own notes.
@@ -69,6 +117,18 @@ export function createApp(db) {
       .run(Number(req.params.id), req.userId);
     if (info.changes === 0) return res.status(404).json({ error: "not found" });
     res.status(204).end();
+  });
+
+  // Errors raised outside the handlers — most often express.json() rejecting a
+  // malformed body. Express's default handler answers with an HTML page that
+  // includes the stack trace and absolute server paths; answer with JSON and
+  // keep internals out of the response. Express recognises an error handler by
+  // its four parameters, so `next` must stay in the signature even unused.
+  app.use((err, req, res, next) => {
+    if (err.type === "entity.parse.failed") {
+      return res.status(400).json({ error: "invalid JSON" });
+    }
+    res.status(err.status ?? 500).json({ error: "internal error" });
   });
 
   return app;
