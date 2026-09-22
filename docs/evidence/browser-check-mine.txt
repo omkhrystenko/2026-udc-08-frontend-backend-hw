@@ -1,0 +1,47 @@
+
+--- accessibility tree: note list (active view) ---
+- list "Активні нотатки":
+  - listitem:
+    - strong: Список покупок
+    - text: хліб, кава 2026-09-22 16:58:03
+    - 'button "Архівувати: Список покупок"': Архівувати
+    - 'button "Видалити: Список покупок"': Видалити
+  - listitem:
+    - strong: Ідеї для відпустки
+    - text: Карпати восени 2026-09-22 16:58:03
+    - 'button "Архівувати: Ідеї для відпустки"': Архівувати
+    - 'button "Видалити: Ідеї для відпустки"': Видалити
+
+PASS  a11y:archive-button-names-unique  names: ["Архівувати: Список покупок","Архівувати: Ідеї для відпустки"]
+PASS  a11y:target-size>=24px  5 buttons OK
+PASS  axe:active-view  no violations
+PASS  flow:single-click-archives  active notes 2 → 1
+PASS  a11y:focus-after-archive  focus: button "Архівувати: Ідеї для відпустки"
+
+--- accessibility tree: note list (archive view) ---
+- list "Архів":
+  - listitem:
+    - strong: Список покупок
+    - text: хліб, кава 2026-09-22 16:58:03
+    - 'button "Повернути з архіву: Список покупок"': Повернути з архіву
+    - 'button "Видалити: Список покупок"': Видалити
+
+PASS  flow:archive-view-lists-note  unarchive buttons: 1
+PASS  flow:add-form-hidden-in-archive  add form visible in archive view: false
+PASS  axe:archive-view  no violations
+PASS  flow:empty-archive-state  {"visible":true,"text":"В архіві порожньо. Заархівовані нотатки з’являться тут."}
+PASS  a11y:change-announced  live regions: "Нотатку «Список покупок» повернуто з архіву."
+PASS  a11y:focus-after-last-unarchive  focus: p "В архіві порожньо. Заархівовані нотатки з’являться тут."
+PASS  axe:empty-archive-view  no violations
+PASS  flow:double-click-still-archived  archived notes after a double click: 1
+PASS  kbd:view-switch-reachable-by-tab  
+PASS  kbd:archive-reachable-by-tab  select "Я увійшов як
+        
+          Оля
+          Тарас" → input "Заголовок" → input "Текст" → button "Додати" → radio "Активні" → button "Архівувати: Ідеї для відпустки" → button "Видалити: Ідеї для відпустки" → BODY → select "Я увійшов як
+        
+          Оля
+          Тарас" → input "Заголовок" → input "Текст" → button "Додати"
+PASS  axe:dark-scheme  no violations
+
+16/16 checks passed

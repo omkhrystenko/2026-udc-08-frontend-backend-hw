@@ -1,0 +1,239 @@
+diff --git a/app/public/app.js b/app/public/app.js
+index 173fb42..aece6b6 100644
+--- a/app/public/app.js
++++ b/app/public/app.js
+@@ -6,13 +6,29 @@ const userSelect = document.querySelector("#user");
+ const list = document.querySelector("#notes");
+ const empty = document.querySelector("#empty");
+ const form = document.querySelector("#new-note");
++const tabActive = document.querySelector("#tab-active");
++const tabArchived = document.querySelector("#tab-archived");
++
++let view = "active"; // "active" | "archived"
+ 
+ function headers() {
+   return { "content-type": "application/json", "x-user-id": userSelect.value };
+ }
+ 
++function setView(next) {
++  view = next;
++  tabActive.setAttribute("aria-pressed", String(view === "active"));
++  tabArchived.setAttribute("aria-pressed", String(view === "archived"));
++  tabActive.classList.toggle("active", view === "active");
++  tabArchived.classList.toggle("active", view === "archived");
++  form.hidden = view === "archived";
++  load();
++}
++
+ async function load() {
+-  const res = await fetch("/api/notes", { headers: headers() });
++  const res = await fetch(`/api/notes?archived=${view === "archived" ? "1" : "0"}`, {
++    headers: headers(),
++  });
+   const notes = await res.json();
+ 
+   list.replaceChildren(
+@@ -29,6 +45,13 @@ async function load() {
+       when.textContent = n.created_at;
+       grow.append(title, body, document.createElement("br"), when);
+ 
++      const archiveBtn = document.createElement("button");
++      archiveBtn.textContent = n.archived ? "Повернути з архіву" : "Архівувати";
++      archiveBtn.addEventListener("click", async () => {
++        await fetch(`/api/notes/${n.id}/archive`, { method: "PATCH", headers: headers() });
++        load();
++      });
++
+       const del = document.createElement("button");
+       del.textContent = "Видалити";
+       del.addEventListener("click", async () => {
+@@ -36,10 +59,12 @@ async function load() {
+         load();
+       });
+ 
+-      li.append(grow, del);
++      li.append(grow, archiveBtn, del);
+       return li;
+     }),
+   );
++  empty.textContent =
++    view === "archived" ? "Архів порожній." : "Нотаток поки немає.";
+   empty.hidden = notes.length > 0;
+ }
+ 
+@@ -58,4 +83,7 @@ form.addEventListener("submit", async (e) => {
+ });
+ 
+ userSelect.addEventListener("change", load);
+-load();
++tabActive.addEventListener("click", () => setView("active"));
++tabArchived.addEventListener("click", () => setView("archived"));
++
++setView("active");
+diff --git a/app/public/index.html b/app/public/index.html
+index cad47f1..b43b1b9 100644
+--- a/app/public/index.html
++++ b/app/public/index.html
+@@ -24,8 +24,13 @@
+       <button type="submit">Додати</button>
+     </form>
+ 
++    <div class="tabs" role="tablist">
++      <button type="button" id="tab-active" class="tab" aria-pressed="true">Активні</button>
++      <button type="button" id="tab-archived" class="tab" aria-pressed="false">Архів</button>
++    </div>
++
+     <ul id="notes"></ul>
+-    <p id="empty" hidden>Нотаток поки немає.</p>
++    <p id="empty" hidden></p>
+ 
+     <script type="module" src="./app.js"></script>
+   </body>
+diff --git a/app/public/style.css b/app/public/style.css
+index bf5740c..b2cf279 100644
+--- a/app/public/style.css
++++ b/app/public/style.css
+@@ -6,6 +6,9 @@ body {
+ header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+ h1 { font-size: 1.4rem; margin: 0; }
+ form { display: flex; gap: .5rem; margin: 1.2rem 0; }
++.tabs { display: flex; gap: .4rem; margin-bottom: .8rem; }
++.tabs .tab { background: transparent; }
++.tabs .tab.active { background: #8882; font-weight: 600; }
+ input { flex: 1; padding: .5rem; border: 1px solid #8884; border-radius: 6px; font: inherit; }
+ button { padding: .5rem .9rem; border: 1px solid #8884; border-radius: 6px; background: #8881; font: inherit; cursor: pointer; }
+ ul { list-style: none; padding: 0; display: grid; gap: .6rem; }
+diff --git a/app/src/app.js b/app/src/app.js
+index 3515a7f..815885a 100644
+--- a/app/src/app.js
++++ b/app/src/app.js
+@@ -28,19 +28,24 @@ export function createApp(db) {
+ 
+   app.use("/api", currentUser);
+ 
+-  // List the caller's own notes.
++  // List the caller's own notes (active by default; ?archived=1 for the archive view).
+   app.get("/api/notes", (req, res) => {
++    const archived = req.query.archived === "1" ? 1 : 0;
+     const rows = db
+-      .prepare("SELECT id, title, body, created_at FROM notes WHERE user_id = ? ORDER BY id")
+-      .all(req.userId);
++      .prepare(
++        "SELECT id, title, body, archived, created_at FROM notes WHERE user_id = ? AND archived = ? ORDER BY id",
++      )
++      .all(req.userId, archived);
+     res.json(rows);
+   });
+ 
+-  // Read one note.
++  // Read one of the caller's own notes.
+   app.get("/api/notes/:id", (req, res) => {
+     const note = db
+-      .prepare("SELECT id, user_id, title, body, created_at FROM notes WHERE id = ?")
+-      .get(Number(req.params.id));
++      .prepare(
++        "SELECT id, title, body, archived, created_at FROM notes WHERE id = ? AND user_id = ?",
++      )
++      .get(Number(req.params.id), req.userId);
+     if (!note) return res.status(404).json({ error: "not found" });
+     res.json(note);
+   });
+@@ -60,6 +65,31 @@ export function createApp(db) {
+     res.status(201).json(created);
+   });
+ 
++  // Archive or unarchive one of the caller's own notes.
++  app.patch("/api/notes/:id/archive", (req, res) => {
++    const id = Number(req.params.id);
++    if (!Number.isInteger(id) || id <= 0) {
++      return res.status(400).json({ error: "invalid id" });
++    }
++
++    const note = db
++      .prepare("SELECT id, archived FROM notes WHERE id = ? AND user_id = ?")
++      .get(id, req.userId);
++    if (!note) return res.status(404).json({ error: "not found" });
++
++    const archived = note.archived ? 0 : 1;
++    db.prepare("UPDATE notes SET archived = ? WHERE id = ? AND user_id = ?").run(
++      archived,
++      id,
++      req.userId,
++    );
++
++    const updated = db
++      .prepare("SELECT id, title, body, archived, created_at FROM notes WHERE id = ?")
++      .get(id);
++    res.json(updated);
++  });
++
+   // Delete one of the caller's own notes.
+   app.delete("/api/notes/:id", (req, res) => {
+     const info = db
+diff --git a/app/src/db.js b/app/src/db.js
+index 6c2a7b0..d22ec06 100644
+--- a/app/src/db.js
++++ b/app/src/db.js
+@@ -22,10 +22,17 @@ export function createDb(file = ":memory:") {
+       user_id   INTEGER NOT NULL REFERENCES users(id),
+       title     TEXT NOT NULL,
+       body      TEXT NOT NULL DEFAULT '',
++      archived  INTEGER NOT NULL DEFAULT 0,
+       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+     );
+   `);
+ 
++  // Existing (pre-archive) database files won't have the column yet.
++  const columns = db.prepare("PRAGMA table_info(notes)").all();
++  if (!columns.some((c) => c.name === "archived")) {
++    db.exec("ALTER TABLE notes ADD COLUMN archived INTEGER NOT NULL DEFAULT 0");
++  }
++
+   const seeded = db.prepare("SELECT COUNT(*) AS n FROM users").get().n > 0;
+   if (!seeded) {
+     db.prepare("INSERT INTO users (id, name) VALUES (?, ?)").run(1, "Оля");
+diff --git a/app/test/api.test.js b/app/test/api.test.js
+index 0e50f07..9f3e74d 100644
+--- a/app/test/api.test.js
++++ b/app/test/api.test.js
+@@ -60,6 +60,40 @@ describe("GET /api/notes/:id", () => {
+   });
+ });
+ 
++describe("PATCH /api/notes/:id/archive", () => {
++  it("archives the caller's own note and removes it from the active list", async () => {
++    const res = await asOlya(request(app).patch("/api/notes/1/archive")).expect(200);
++    expect(res.body.archived).toBe(1);
++
++    const active = await asOlya(request(app).get("/api/notes")).expect(200);
++    expect(active.body).toHaveLength(1);
++
++    const archived = await asOlya(request(app).get("/api/notes?archived=1")).expect(200);
++    expect(archived.body).toHaveLength(1);
++    expect(archived.body[0].id).toBe(1);
++  });
++
++  it("toggles back to active on a second call", async () => {
++    await asOlya(request(app).patch("/api/notes/1/archive")).expect(200);
++    const res = await asOlya(request(app).patch("/api/notes/1/archive")).expect(200);
++    expect(res.body.archived).toBe(0);
++
++    const active = await asOlya(request(app).get("/api/notes")).expect(200);
++    expect(active.body).toHaveLength(2);
++  });
++
++  it("will not archive someone else's note", async () => {
++    await asOlya(request(app).patch("/api/notes/3/archive")).expect(404);
++    const taras = await asTaras(request(app).get("/api/notes")).expect(200);
++    expect(taras.body).toHaveLength(1);
++    expect(taras.body[0].archived).toBe(0);
++  });
++
++  it("404s for a note that does not exist", async () => {
++    await asOlya(request(app).patch("/api/notes/999/archive")).expect(404);
++  });
++});
++
+ describe("DELETE /api/notes/:id", () => {
+   it("deletes the caller's own note", async () => {
+     await asOlya(request(app).delete("/api/notes/1")).expect(204);

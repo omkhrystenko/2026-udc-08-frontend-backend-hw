@@ -1,0 +1,47 @@
+
+--- accessibility tree: note list (active view) ---
+- list:
+  - listitem:
+    - strong: Список покупок
+    - text: хліб, кава 2026-09-22 16:58:03
+    - button "Архівувати"
+    - button "Видалити"
+  - listitem:
+    - strong: Ідеї для відпустки
+    - text: Карпати восени 2026-09-22 16:58:03
+    - button "Архівувати"
+    - button "Видалити"
+
+FAIL  a11y:archive-button-names-unique  names: ["Архівувати","Архівувати"]
+PASS  a11y:target-size>=24px  7 buttons OK
+FAIL  axe:active-view  aria-required-children(critical, 1), landmark-one-main(moderate, 1), region(moderate, 4)
+PASS  flow:single-click-archives  active notes 2 → 1
+FAIL  a11y:focus-after-archive  focus: BODY
+
+--- accessibility tree: note list (archive view) ---
+- list:
+  - listitem:
+    - strong: Список покупок
+    - text: хліб, кава 2026-09-22 16:58:03
+    - button "Повернути з архіву"
+    - button "Видалити"
+
+PASS  flow:archive-view-lists-note  unarchive buttons: 1
+FAIL  flow:add-form-hidden-in-archive  add form visible in archive view: true
+FAIL  axe:archive-view  aria-required-children(critical, 1), landmark-one-main(moderate, 1), region(moderate, 3)
+PASS  flow:empty-archive-state  {"visible":true,"text":"Архів порожній."}
+FAIL  a11y:change-announced  live regions: ""
+FAIL  a11y:focus-after-last-unarchive  focus: BODY
+FAIL  axe:empty-archive-view  aria-required-children(critical, 1), landmark-one-main(moderate, 1), region(moderate, 3)
+FAIL  flow:double-click-still-archived  archived notes after a double click: 0
+PASS  kbd:view-switch-reachable-by-tab  
+PASS  kbd:archive-reachable-by-tab  select "Я увійшов як
+        
+          Оля
+          Тарас" → input "" → input "" → button "Додати" → button "Активні" → button "Архів" → button "Архівувати" → button "Видалити" → button "Архівувати" → button "Видалити" → BODY → select "Я увійшов як
+        
+          Оля
+          Тарас"
+FAIL  axe:dark-scheme  aria-required-children(critical, 1), color-contrast(serious, 6), landmark-one-main(moderate, 1), region(moderate, 4)
+
+6/16 checks passed

@@ -18,14 +18,29 @@
       </label>
     </header>
 
-    <form id="new-note">
-      <input id="title" placeholder="Заголовок" required />
-      <input id="body" placeholder="Текст" />
-      <button type="submit">Додати</button>
-    </form>
+    <main>
+      <form id="new-note">
+        <input id="title" placeholder="Заголовок" aria-label="Заголовок" required />
+        <input id="body" placeholder="Текст" aria-label="Текст" />
+        <button type="submit">Додати</button>
+      </form>
 
-    <ul id="notes"></ul>
-    <p id="empty" hidden>Нотаток поки немає.</p>
+      <!-- Native radios, not role="tablist": the semantics and the arrow-key
+           navigation come from the browser, and nothing needs hand-written ARIA. -->
+      <fieldset id="view" class="view-switch">
+        <legend>Показати</legend>
+        <label><input type="radio" name="view" value="active" checked /> Активні</label>
+        <label><input type="radio" name="view" value="archived" /> Архів</label>
+      </fieldset>
+
+      <h2 id="list-heading" class="visually-hidden">Активні нотатки</h2>
+      <ul id="notes" aria-labelledby="list-heading"></ul>
+      <p id="empty" tabindex="-1" hidden></p>
+
+      <!-- Announces what just happened: an archived note leaves the list, and a
+           screen reader user would otherwise hear nothing at all. -->
+      <p id="status" role="status" class="visually-hidden"></p>
+    </main>
 
     <script type="module" src="./app.js"></script>
   </body>

@@ -1,0 +1,11 @@
+B1 sequential x2 → archived list: [] active list: [1,2]
+B1 parallel x2  → archived list: []
+B2 ?archived="1" → 200, ids=[1]
+B2 ?archived="true" → 200, ids=[2]
+B2 ?archived="yes" → 200, ids=[2]
+B2 ?archived="banana" → 200, ids=[2]
+B2 ?archived="" → 200, ids=[2]
+B3 PATCH body: {"id":1,"title":"Список покупок","body":"хліб, кава","archived":1,"created_at":"2026-09-22 16:54:37"}
+B5 send {archived:true} on an archived note → {"id":1,"title":"Список покупок","body":"хліб, кава","archived":0,"created_at":"2026-09-22 16:54:37"}
+B4 seeded read leak restored in the agent's GET /api/notes/:id → agent's own suite: Tests 13 passed (13)
+B4 …while the leak is live: GET /api/notes/3 as user 1 → 200 {"id":3,"user_id":2,"title":"Приватна нотатка Тараса","body":"пароль від сейфа: 1234","archived":0,…}

@@ -1,0 +1,14 @@
+{
+  "name": "udc-ws08-browser-checks",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-level checks for the notes app (Task A + Task E). Kept apart from app/ so the app itself stays dependency-light and build-free.",
+  "scripts": {
+    "check": "node browser-check.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "playwright-core": "^1.48.0"
+  }
+}
